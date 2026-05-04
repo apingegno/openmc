@@ -109,3 +109,4 @@ CMakeSettings.json
 
 # Python pickle files
 *.pkl
+openmc-dt-py/

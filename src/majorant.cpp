@@ -1,6 +1,11 @@
+#include <algorithm>
 #include <fstream>
 
 #include <fmt/core.h>
+#include <iostream>
+#include <openmc/error.h>
+#include <openmc/mgxs_interface.h>
+#include <ostream>
 
 #include "openmc/constants.h"
 #include "openmc/majorant.h"
@@ -15,6 +20,7 @@ namespace openmc {
 namespace data {
 std::vector<std::unique_ptr<Majorant>> nuclide_majorants;
 std::unique_ptr<Majorant> n_majorant;
+std::vector<double> mg_majorant; // the vector for tha multigroup majorant xs
 }
 
 void create_majorant() {
@@ -140,6 +146,47 @@ void create_majorant() {
   data::n_majorant->write_ascii("macro_majorant.txt");
 }
 
+// creating overall multigroup majorant xs
+void create_majorant_mg() {
+  write_message("Creating Multigroup Majorant XS...");
+
+  auto& mg_macro_xs = data::mg.macro_xs_;
+
+  const int num_groups = data::mg.num_energy_groups_;
+  const int num_mats = mg_macro_xs.size();
+
+  data::mg_majorant.resize(num_groups, 0.0);
+
+  for (int m=0; m < num_mats; m++) {
+
+    auto& mat = mg_macro_xs[m];
+
+    // Skip materials that don't exist in the model
+    if (!mat.exists_in_model) continue;
+
+    int num_temps = mat.n_temperature_points();
+    int num_angles = mat.is_isotropic ? 1 : 1; // For now assume isotropic
+
+    for (int g = 0; g < num_groups; g++) {
+      for (int t = 0; t < num_temps; t++) {
+        for (int a = 0; a < num_angles; a++) {
+          double mat_total_xs = mat.get_xs(MgxsType::TOTAL, g, t, a);
+
+          if (mat_total_xs > data::mg_majorant[g]) {
+            data::mg_majorant[g] = mat_total_xs;
+          }
+        }
+      }
+    }
+
+  }
+
+  // writing mg majorant to ascii file for plotting
+  write_mg_ascii("mg_macro_maj_continuous.txt");
+  write_mg_ascii_step("mg_macro_maj_step.txt");
+
+}
+
 std::vector<double>
 compute_majorant_energy_grid() {
 
@@ -262,6 +309,30 @@ void Majorant::write_ascii(const std::string& filename) const {
 
   for (int i = 0; i < xs_.size(); i++) {
     of << grid_.energy[i] << "\t" << xs_[i] << "\n";
+  }
+
+  of.close();
+}
+
+// write multigroup majorant xs in a continuous fashion (one point per group)
+void write_mg_ascii(const std::string& filename) {
+
+  std::ofstream of(filename);
+
+  for (int g = 0; g < data::mg_majorant.size(); g++) {
+    of << data::mg.energy_bin_avg_[g] << "\t" << data::mg_majorant[g] << "\n";
+  }
+
+  of.close();
+}
+
+// used to write the multigroup majorant xs in a stepwise fashion
+void write_mg_ascii_step(const std::string& filename) {
+
+  std::ofstream of(filename);
+
+  for (int g = 0; g < data::mg_majorant.size(); g++) {
+    of << data::mg.energy_bins_[g] << "\t" << data::mg.energy_bins_[g + 1] << "\t" << data::mg_majorant[g] << "\n";
   }
 
   of.close();

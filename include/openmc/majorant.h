@@ -16,6 +16,7 @@ class Majorant;
 namespace data {
   extern std::vector<std::unique_ptr<Majorant>> nuclide_majorants;
   extern std::unique_ptr<Majorant> n_majorant;
+  extern std::vector<double> mg_majorant;
 }
 
 class Majorant {
@@ -102,6 +103,10 @@ public:
 
   void create_majorant();
   std::vector<double> compute_majorant_energy_grid();
+
+  void create_majorant_mg(); // create a multigroup majorant cross section function
+  void write_mg_ascii(const std::string& filename);
+  void write_mg_ascii_step(const std::string& filename);
 }
 
 #endif // OPENMC_MAJORANT_H

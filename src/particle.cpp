@@ -311,9 +311,16 @@ void Particle::event_advance()
 
 void Particle::event_delta_advance()
 {
-  if (E() != E_last()) {
-    update_majorant();
+  if (settings::run_CE) {
+    if (E() != E_last()) {
+      update_majorant();
+    }
+  } else {
+    if (g() != g_last()) {
+      update_majorant();
+    }
   }
+  
 
   // sample distance to next position
   double distance;
@@ -324,10 +331,14 @@ void Particle::event_delta_advance()
     distance = -std::log(prn(current_seed())) / majorant();
   }
 
+  // Calculate speed to advance particle in time
+  double speed = this->speed();
+
   // Advance the particle (applying boundary conditions) until it either:
   // i) Reaches a collision site;
   // ii) Or leaks out of a vacuum boundary condition.
   while (distance >= 0 && alive()) {
+
     // update distance to problem boundary
     boundary().distance() = INFTY;
     boundary().surface() = 0;
@@ -343,25 +354,58 @@ void Particle::event_delta_advance()
         }
       }
     }
-
+  
     // We collided before crossing a boundary surface.
     // Need to advance the particle to the collision site.
     if (distance < boundary().distance()) {
-      move_distance(distance);
+      
+      this->move_distance(distance);
+
+      // advancing particle in time
+      double dt = distance / speed;
+      this->time() += dt;
+      this->lifetime() += dt;
+
+      // Score track-length tally
+      // Currently testing/ed for TLE of flux on structured mesh
+      if (!model::active_tracklength_tallies.empty()) {
+        score_tracklength_tally(*this, distance);
+      }
+
       break;
     }
 
     // Advance particle to the boundary surface.
-    move_distance(boundary().distance());
+    this->move_distance(boundary().distance());
+
+    // Advance particle in time.
+    double dt = boundary().distance() / speed;
+    this->time() += dt;
+    this->lifetime() += dt;
+
+    // Score track-length tally
+    // Currently testing/ed for TLE of flux on structured mesh
+    if (!model::active_tracklength_tallies.empty()) {
+      score_tracklength_tally(*this, distance);
+    }
+
     event_cross_surface();
     distance -= boundary().distance();
   }
 
   // Ensure that cross sections will be re-calculated if
   // the energy has changed.
-  if (E() != E_last()) {
-    material_last() = C_NONE;
+  
+  if (settings::run_CE) {
+    if (E() != E_last()) {
+      material_last() = C_NONE;
+    }
+  } else {
+    if (g() != g_last()) {
+      material_last() = C_NONE;
+    }
   }
+
 }
 
 void Particle::event_cross_surface()
@@ -869,7 +913,11 @@ void Particle::cross_periodic_bc(
 
 void Particle::update_majorant()
 {
-  this->majorant() = 1.000001 * data::n_majorant->calculate_xs(this->E());
+  if (settings::run_CE) {
+    this->majorant() = 1.000001 * data::n_majorant->calculate_xs(this->E());
+  } else {
+    this->majorant() = data::mg_majorant[this->g()];
+  }
 }
 
 void Particle::mark_as_lost(const char* message)

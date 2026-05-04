@@ -86,7 +86,15 @@ int openmc_simulation_init()
     initialize_data();
   }
 
-  if (settings::delta_tracking) create_majorant();
+  if (settings::delta_tracking) {
+
+    if (settings::run_CE) { 
+      create_majorant();
+    } else {
+      create_majorant_mg();
+    }
+
+  }
 
   // Determine how much work each process should do
   calculate_work();
@@ -647,8 +655,9 @@ void initialize_history(Particle& p, int64_t index_source)
   }
 
   // Compute the majorant.
-  if (settings::delta_tracking)
+  if (settings::delta_tracking) {
     p.update_majorant();
+  }
 
   // Add paricle's starting weight to count for normalizing tallies later
 #pragma omp atomic
@@ -852,6 +861,7 @@ void transport_delta_tracking_single_particle(Particle& p)
 {
   p.delta_tracking() = true;
   p.event_calculate_xs();
+  
   while (true) {
     p.event_delta_advance();
     if (!p.alive())
