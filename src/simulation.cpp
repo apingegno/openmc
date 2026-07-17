@@ -89,11 +89,7 @@ int openmc_simulation_init()
 
   // Create the majorant cross sections for delta tracking.
   if (settings::delta_tracking) {
-    if (settings::run_CE) {
-      create_majorants();
-    } else {
-      create_majorant_mg();
-    }
+    create_majorants();
   }
 
   // Determine how much work each process should do

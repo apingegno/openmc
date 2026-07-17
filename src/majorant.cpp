@@ -662,7 +662,7 @@ void create_majorants()
     }
   } else {
     write_message("Constructing neutron Multigroup Majorant XS...");
-
+    create_majorant_mg();
   }
 
   simulation::time_build_majorant.stop();
