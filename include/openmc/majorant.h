@@ -20,6 +20,7 @@ class PhotonMajorant;
 namespace data {
 extern std::unique_ptr<NeutronMajorant> n_majorant;
 extern std::unique_ptr<PhotonMajorant> p_majorant;
+extern std::vector<double> mg_majorant;
 } // namespace data
 
 //==============================================================================
@@ -307,6 +308,11 @@ void create_majorants();
 
 //! A function to reset majorant cross sections.
 void reset_majorants();
+
+//! A function to create multigroup majorant cross sections.
+void create_majorant_mg(); // create a multigroup majorant cross section function
+void write_mg_ascii(const std::string& filename); // debugging function
+void write_mg_ascii_step(const std::string& filename); //debugging function
 } // namespace openmc
 
 #endif // OPENMC_MAJORANT_H

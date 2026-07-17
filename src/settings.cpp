@@ -1240,10 +1240,11 @@ void read_settings_xml(pugi::xml_node root)
         "temperature treatment.");
     }
 
-    if (!run_CE && delta_tracking) {
-      fatal_error("At present, delta tracking can only be used in continuous "
-                  "energy simulations.");
-    }
+    // for delta tracking testing with MGXS
+    // if (!run_CE && delta_tracking) {
+    //   fatal_error("At present, delta tracking can only be used in continuous "
+    //               "energy simulations.");
+    // }
   }
 
   // Check whether material cell offsets should be generated

@@ -330,8 +330,14 @@ void Particle::event_advance()
 
 void Particle::event_delta_advance()
 {
-  if (E() != E_last()) {
-    update_majorant();
+  if (settings::run_CE) {
+    if (E() != E_last()) {
+      update_majorant();
+  }
+  } else {
+    if (g() != g_last()) {
+      update_majorant();
+    }
   }
 
   // Sample distance to next position
@@ -921,12 +927,16 @@ void Particle::cross_periodic_bc(
 
 void Particle::update_majorant()
 {
-  if (type().is_neutron()) {
-    majorant() = NeutronMajorant::safety_factor_ *
-                 data::n_majorant->calculate_neutron_xs(E());
-  } else if (type().is_photon()) {
-    majorant() = PhotonMajorant::safety_factor_ *
-                 data::p_majorant->calculate_photon_xs(E());
+  if (settings::run_CE) {
+    if (type().is_neutron()) {
+      majorant() = NeutronMajorant::safety_factor_ *
+                   data::n_majorant->calculate_neutron_xs(E());
+    } else if (type().is_photon()) {
+      majorant() = PhotonMajorant::safety_factor_ *
+                   data::p_majorant->calculate_photon_xs(E());
+    }
+  } else {
+    majorant() = data::mg_majorant[this->g()];
   }
 }
 
