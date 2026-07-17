@@ -16,8 +16,6 @@
 #include "openmc/universe.h"
 
 #include <openmc/mgxs_interface.h>
-#include <ostream>
-#include <iostream>
 #include<fstream>
 
 namespace openmc {
@@ -578,39 +576,11 @@ double PhotonMajorant::calculate_elem_tot_xs(
   return coherent + incoherent + photoelectric + pair_production;
 }
 
-//! Create a majorant cross section for photons or neutrons.
-void create_majorants()
-{
-  simulation::time_build_majorant.start();
-
-  write_message("Constructing a neutron majorant cross section");
-  data::n_majorant = std::make_unique<NeutronMajorant>(model::root_universe);
-  data::n_majorant->compute_unionized_grid();
-  data::n_majorant->compute_majorant();
-
-  if (settings::photon_transport) {
-    write_message("Constructing a photon majorant cross section");
-    data::p_majorant = std::make_unique<PhotonMajorant>(model::root_universe);
-    data::p_majorant->compute_unionized_grid();
-    data::p_majorant->compute_majorant();
-  }
-
-  simulation::time_build_majorant.stop();
-}
-
-//! Reset the photon and neutron majorant cross sections.
-void reset_majorants()
-{
-  openmc::data::n_majorant.reset(nullptr);
-  openmc::data::p_majorant.reset(nullptr);
-}
-
 //==============================================================================
 // MultiGroupMajorant implementation
 //==============================================================================
 
 void create_majorant_mg() {
-  write_message("Creating Multigroup Majorant XS...");
 
   auto& mg_macro_xs = data::mg.macro_xs_;
 
@@ -627,11 +597,8 @@ void create_majorant_mg() {
     if (!mat.exists_in_model) continue;
 
     int num_temps = mat.n_temperature_points();
-    int num_angles = mat.is_isotropic ? 1 : 1; // For now assume isotropic
+    int num_angles = mat.n_angle();
 
-    if (!mat.is_isotropic) {
-      fatal_error("Anisotropic MGXS not yet supported for multi-group delta tracking");
-    }
     for (int g = 0; g < num_groups; g++) {
       for (int t = 0; t < num_temps; t++) {
         for (int a = 0; a < num_angles; a++) {
@@ -675,4 +642,37 @@ void write_mg_ascii_step(const std::string& filename) {
 
   of.close();
 }
+
+//! Create a majorant cross section for photons or neutrons.
+void create_majorants()
+{
+  simulation::time_build_majorant.start();
+
+  if (settings::run_CE) {
+    write_message("Constructing a neutron majorant cross section");
+    data::n_majorant = std::make_unique<NeutronMajorant>(model::root_universe);
+    data::n_majorant->compute_unionized_grid();
+    data::n_majorant->compute_majorant();
+
+    if (settings::photon_transport) {
+      write_message("Constructing a photon majorant cross section");
+      data::p_majorant = std::make_unique<PhotonMajorant>(model::root_universe);
+      data::p_majorant->compute_unionized_grid();
+      data::p_majorant->compute_majorant();
+    }
+  } else {
+    write_message("Constructing neutron Multigroup Majorant XS...");
+
+  }
+
+  simulation::time_build_majorant.stop();
+}
+
+//! Reset the photon and neutron majorant cross sections.
+void reset_majorants()
+{
+  openmc::data::n_majorant.reset(nullptr);
+  openmc::data::p_majorant.reset(nullptr);
+}
+
 } // namespace openmc

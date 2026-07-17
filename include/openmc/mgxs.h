@@ -118,6 +118,11 @@ public:
   //! @return The number of temperature data points for this MGXS
   inline int n_temperature_points() { return kTs.size(); }
 
+  //! \brief Get the number of angular bins (polar x azimuthal)
+  //!
+  //! @return The total number of angle bins for this MGXS
+  inline int n_angle() const { return n_pol * n_azi; }
+
   //! \brief Provides a cross section value given certain parameters
   //!
   //! @param xstype Type of cross section requested, according to the
