@@ -376,6 +376,12 @@ void Particle::event_delta_advance()
   time() += dt;
   lifetime() += dt;
 
+  // Score track-length tallies for delta tracking
+  // Only flux tallies with structured mesh filters are compatible
+  if (!model::active_delta_tracking_tallies.empty()) {
+    score_tracklength_tally(*this, distance);
+  }
+
   // Need to locate the particle at the collision site or boundary.
   for (int j = 0; j < n_coord(); ++j) {
     coord(j).reset();

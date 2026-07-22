@@ -63,6 +63,7 @@ vector<int> active_collision_tallies;
 vector<int> active_meshsurf_tallies;
 vector<int> active_surface_tallies;
 vector<int> active_pulse_height_tallies;
+vector<int> active_delta_tracking_tallies;
 vector<int32_t> pulse_height_cells;
 vector<double> time_grid;
 } // namespace model
@@ -351,9 +352,23 @@ Tally::Tally(pugi::xml_node node)
   }
 
   // If we're running with delta tracking, the default estimator must be set to
-  // collision or analog.
+  // collision or analog, unless this is a flux-only tally with a mesh filter.
   if (settings::delta_tracking && estimator_ == TallyEstimator::TRACKLENGTH) {
-    estimator_ = TallyEstimator::COLLISION;
+    // Check if this tally is compatible with delta tracking
+    bool has_flux_only = true;
+    for (auto score : scores_) {
+      if (score != SCORE_FLUX) {
+        has_flux_only = false;
+        break;
+      }
+    }
+    bool has_mesh_filter = (this->get_filter<MeshFilter>() ||
+                            this->get_filter<MeshMaterialFilter>());
+
+    // Only allow tracklength estimator for flux-only tallies with mesh filters
+    if (!has_flux_only || !has_mesh_filter) {
+      estimator_ = TallyEstimator::COLLISION;
+    }
   }
 
   // =======================================================================
@@ -370,9 +385,30 @@ Tally::Tally(pugi::xml_node node)
       // tally needs post-collision information
       if (estimator_ == TallyEstimator::ANALOG ||
           estimator_ == TallyEstimator::COLLISION) {
-        throw std::runtime_error {fmt::format("Cannot use track-length "
-                                              "estimator for tally {}",
-          id_)};
+        // Check if delta tracking requires this to be collision estimator
+        if (settings::delta_tracking) {
+          // Check if tally is compatible with delta tracking TLE
+          bool has_flux_only = true;
+          for (auto score : scores_) {
+            if (score != SCORE_FLUX) {
+              has_flux_only = false;
+              break;
+            }
+          }
+          bool has_mesh_filter = (this->get_filter<MeshFilter>() ||
+                                  this->get_filter<MeshMaterialFilter>());
+
+          if (!has_flux_only || !has_mesh_filter) {
+            throw std::runtime_error {fmt::format(
+              "Cannot use track-length estimator for tally {} with delta "
+              "tracking. Only flux-only tallies with mesh filters are supported.",
+              id_)};
+          }
+        } else {
+          throw std::runtime_error {fmt::format("Cannot use track-length "
+                                                "estimator for tally {}",
+            id_)};
+        }
       }
 
       // Set estimator to track-length estimator
@@ -1190,6 +1226,7 @@ void setup_active_tallies()
   model::active_meshsurf_tallies.clear();
   model::active_surface_tallies.clear();
   model::active_pulse_height_tallies.clear();
+  model::active_delta_tracking_tallies.clear();
   model::time_grid.clear();
 
   for (auto i = 0; i < model::tallies.size(); ++i) {
@@ -1213,6 +1250,21 @@ void setup_active_tallies()
             add_to_time_grid(time_filter->bins());
           } else {
             model::active_tracklength_tallies.push_back(i);
+          }
+
+          // Check if this tally is compatible with delta tracking
+          // Requirements: flux score only + structured mesh filter
+          if (mesh_present) {
+            bool has_flux_only = true;
+            for (auto score : tally.scores_) {
+              if (score != SCORE_FLUX) {
+                has_flux_only = false;
+                break;
+              }
+            }
+            if (has_flux_only) {
+              model::active_delta_tracking_tallies.push_back(i);
+            }
           }
           break;
         case TallyEstimator::COLLISION:
@@ -1254,6 +1306,7 @@ void free_memory_tally()
   model::active_meshsurf_tallies.clear();
   model::active_surface_tallies.clear();
   model::active_pulse_height_tallies.clear();
+  model::active_delta_tracking_tallies.clear();
   model::time_grid.clear();
 
   model::tally_map.clear();
